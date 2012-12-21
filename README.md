@@ -1,23 +1,22 @@
-blitzmax-geany-plugin
-=====================
+BlitzMax-Plugin for Geany
+=========================
 
-Geany plugin which adds some blitzmax flavor
+Geany plugin which adds some BlitzMax flavor.
 
 
 
 Build on Linux
 --------------
 
-1. cd into the plugin dir
+1. ("cd" into the plugin-source dir)
 2. "./autogen.sh"
 3. "cd blitzmax"
 4. "sudo make install"
+5. (re)start Geany
+6. click on menu "Tools" -> "Plugin manager"
+   1. [x] enable BlitzMax-Addon
+   2. click on "Preferences"
+   3. enter absolute BlitzMax-path
+   4. click "Ok"
 
-6. restart Geany
-7. "tools" -> "plugin manager"
-7.1 [x] BlitzMax-Addon
-7.2 click on "Preferences"
-7.3 enter the BlitzMax-path
-7.4 click "Ok"
-
-Finish.
+done.

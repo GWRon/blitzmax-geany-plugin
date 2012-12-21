@@ -146,9 +146,6 @@ static void executeBuildCommand(gint doRun) {
 }
 
 static void changeBuildCommand() {
-	//we could change the mode here, instead of calculating it on click...
-	msgwin_compiler_add(COLOR_BLUE, _("switching compilation mode to: %s"), "hehe");
-
 	//g_strconcat awaits NULL terminated array -> last var is a NULL
 	gchar *workingDir		= g_strconcat(blitzConfig->blitzmaxPath, G_DIR_SEPARATOR_S, "bin", NULL);
 	const gchar *compiler	= "./bmk";
