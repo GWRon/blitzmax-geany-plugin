@@ -32,7 +32,7 @@ PLUGIN_SET_TRANSLATABLE_INFO(
 		LOCALEDIR, GETTEXT_PACKAGE,
 		_("BlitzMax-Addon"),
 		_("Various functions for the BlitzMax language in Geany."),
-		"0.2",
+		"0.3",
 		"Ronny Otto <ron(at)gamezworld(dot)de>"
 	);
 
@@ -50,6 +50,7 @@ static AddonConfig *blitzConfig = NULL;
 
 // store build options globally, so "run" can be set by button-events
 gint optionRun			= 1;
+gint optionQuickBuild	= 0;
 gint optionDebug		= 0;
 gint optionConsole		= 0;
 gint optionRebuild		= 0;
@@ -154,11 +155,12 @@ static void changeBuildCommand() {
 	#endif
 	const gchar *command	=  "\"%d/%f\""; //quoted "%d/%f"
 
-	optionDebug 	= 0;
-	optionRebuild	= 0;
-	optionThreaded	= 0;
-	optionConsole	= 0;
-	optionTargetOS	= 0;
+	optionDebug      = 0;
+	optionRebuild    = 0;
+	optionThreaded   = 0;
+	optionConsole    = 0;
+	optionTargetOS   = 0;
+	optionQuickBuild = 0;
 
 	switch( blitzConfig->compilerModeTarget ){
 		//Windows Console
@@ -189,31 +191,67 @@ static void changeBuildCommand() {
 	switch( blitzConfig->compilerModeBuild ){
 		//Release
 		case 1:		break;
-		//Release +Threaded
-		case 2:		optionThreaded=1;
+		//Release + Quick
+		case 2:		optionQuickBuild=1;
 					break;
-		//Release +Rebuild
-		case 3:		optionRebuild=1;
+		//Release + Threaded
+		case 3:		optionThreaded=1;
 					break;
-		//Release +Rebuild +Threaded
-		case 4:		optionRebuild=1;
+		//Release + Threaded + Quick
+		case 4:		optionThreaded=1;
+					optionQuickBuild=1;
+					break;
+		//Release + Rebuild
+		case 5:		optionRebuild=1;
+					break;
+		//Release + Rebuild + Quick
+		case 6:		optionRebuild=1;
+					optionQuickBuild=1;
+					break;
+		//Release + Rebuild + Threaded
+		case 7:		optionRebuild=1;
 					optionThreaded=1;
+					break;
+		//Release + Rebuild + Threaded + Quick
+		case 8:		optionRebuild=1;
+					optionThreaded=1;
+					optionQuickBuild=1;
 					break;
 		//Debug
-		case 5:		optionDebug=1;
+		case 9:		optionDebug=1;
 					break;
-		//Debug +Threaded
-		case 6:		optionDebug=1;
+		//Debug + Quick
+		case 10:	optionDebug=1;
+					optionQuickBuild=1;
+					break;
+		//Debug + Threaded
+		case 11:	optionDebug=1;
 					optionThreaded=1;
 					break;
-		//Debug +Rebuild
-		case 7:		optionDebug=1;
+		//Debug + Threaded + Quick
+		case 12:	optionDebug=1;
+					optionThreaded=1;
+					optionQuickBuild=1;
+					break;
+		//Debug + Rebuild
+		case 13:	optionDebug=1;
 					optionRebuild=1;
+					break;
+		//Debug + Rebuild + Quick
+		case 14:	optionDebug=1;
+					optionRebuild=1;
+					optionQuickBuild=1;
 					break;
 		//Debug +Rebuild +Threaded
-		case 8:		optionDebug=1;
+		case 15:	optionDebug=1;
 					optionRebuild=1;
 					optionThreaded=1;
+					break;
+		//Debug +Rebuild +Threaded + Quick
+		case 16:	optionDebug=1;
+					optionRebuild=1;
+					optionThreaded=1;
+					optionQuickBuild=1;
 					break;
 	}
 
@@ -230,6 +268,9 @@ static void changeBuildCommand() {
 
 	if( optionRebuild==1 )
 		command = g_strconcat("-a ", command, NULL);
+
+	if( optionQuickBuild==1 )
+		command = g_strconcat("-quick ", command, NULL);
 
 	if( optionConsole==1 )
 		command = g_strconcat("-t console ", command, NULL);
@@ -370,13 +411,21 @@ void initToolbarElements(GeanyData *data) {
 	// add dropdown texts
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Select Mode");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Threaded");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Threaded +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Rebuild");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Rebuild +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Rebuild +Threaded");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Release +Rebuild +Threaded +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Threaded");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Threaded +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Rebuild");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Rebuild +Quick");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Rebuild +Threaded");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), "Debug +Rebuild +Threaded +Quick");
 	// set active to stored one (defaults to "Select...")
 	gtk_combo_box_set_active( GTK_COMBO_BOX(toolbar_compileModesBuild_dropdown), blitzConfig->compilerModeBuild );
 	// connect to "change" event - if user changes selection
