@@ -1,7 +1,7 @@
 /*
  *      blitzmax.h - this file is part of "BlitzMax"-addon
  *
- *      Copyright 2009-2011 Ronny Otto
+ *      Copyright 2009-2018 Ronny Otto
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ PLUGIN_SET_TRANSLATABLE_INFO(
 		LOCALEDIR, GETTEXT_PACKAGE,
 		_("BlitzMax-Addon"),
 		_("Various functions for the BlitzMax language in Geany."),
-		"0.3",
+		"0.4",
 		"Ronny Otto <ron(at)gamezworld(dot)de>"
 	);
 
@@ -41,8 +41,11 @@ PLUGIN_SET_TRANSLATABLE_INFO(
 typedef struct {
 	gchar *configFile;
 	gchar *blitzmaxPath;
+	gchar *blitzmaxNGPath;
 	gint compilerModeTarget;
 	gint compilerModeBuild;
+	gint compiler;
+	gint compilerTargetArch; //NG
 } AddonConfig;
 static AddonConfig *blitzConfig = NULL;
 
@@ -56,14 +59,18 @@ gint optionConsole		= 0;
 gint optionRebuild		= 0;
 gint optionThreaded		= 0;
 gint optionTargetOS		= 0;
+gint optionTargetArch	= 0;
 
 static GtkToolItem *toolbar_compileBoxItem = NULL;
 static GtkWidget *toolbar_compileBox = NULL;
 static GtkWidget *toolbar_compileModesTarget_dropdown = NULL;
+static GtkWidget *toolbar_compiler_dropdown = NULL;
+static GtkWidget *toolbar_compileTargetArch_dropdown = NULL;
 static GtkWidget *toolbar_compileModesBuild_dropdown = NULL;
 static GtkToolItem *toolbar_compile_button = NULL;
 static GtkToolItem *toolbar_compileAndRun_button = NULL;
 static GtkWidget *blitzmaxPathEntry;
+static GtkWidget *blitzmaxNGPathEntry;
 
 //event handler implementations
 //-----------------------------
@@ -73,6 +80,9 @@ static void onConfigureResponse(GtkDialog *dialog, gint response, gpointer user_
 	if (response == GTK_RESPONSE_OK || response == GTK_RESPONSE_APPLY) {
 		g_free(blitzConfig->blitzmaxPath);
 		blitzConfig->blitzmaxPath = g_strdup( gtk_entry_get_text( GTK_ENTRY(blitzmaxPathEntry) ) );
+
+		g_free(blitzConfig->blitzmaxNGPath);
+		blitzConfig->blitzmaxNGPath = g_strdup( gtk_entry_get_text( GTK_ENTRY(blitzmaxNGPathEntry) ) );
 	}
 	saveConfiguration();
 }
@@ -117,6 +127,23 @@ static void onToolbarCompileModesTargetDropdownChanged(GtkComboBox *box, gpointe
 	changeBuildCommand();
 }
 
+static void onToolbarCompilerDropdownChanged(GtkComboBox *box, gpointer data) {
+	//store selection in info
+	blitzConfig->compiler = gtk_combo_box_get_active(box);
+
+	if (blitzConfig->compiler == 0)
+		hideToolbarNGElements();
+	else
+		showToolbarNGElements();
+
+	changeBuildCommand();
+}
+
+static void onToolbarTargetArchDropdownChanged(GtkComboBox *box, gpointer data) {
+	//store selection in info
+	blitzConfig->compilerTargetArch = gtk_combo_box_get_active(box);
+	changeBuildCommand();
+}
 
 
 
@@ -141,14 +168,16 @@ static void executeBuildCommand(gint doRun) {
 	if (item && GTK_WIDGET_IS_SENSITIVE(item))
 		gtk_menu_item_activate(GTK_MENU_ITEM(item));
 
-	//reset to default 1 - so that F9 compiles and runs (i like it that way...)
+	//reset to default 1 - so that F9 compiles and executes
 	optionRun = 1;
 
 }
 
 static void changeBuildCommand() {
 	//g_strconcat awaits NULL terminated array -> last var is a NULL
-	gchar *workingDir		= g_strconcat(blitzConfig->blitzmaxPath, G_DIR_SEPARATOR_S, "bin", NULL);
+	gchar *workingDir1 = g_strconcat(blitzConfig->blitzmaxPath, G_DIR_SEPARATOR_S, "bin", NULL);
+	gchar *workingDir2 = g_strconcat(blitzConfig->blitzmaxNGPath, G_DIR_SEPARATOR_S, "bin", NULL);
+
 	const gchar *compiler	= "./bmk";
 	#ifdef G_OS_WIN32
 		compiler			= "bmk.exe";
@@ -161,6 +190,14 @@ static void changeBuildCommand() {
 	optionConsole    = 0;
 	optionTargetOS   = 0;
 	optionQuickBuild = 0;
+	optionTargetArch = 0;
+
+	switch( blitzConfig->compilerTargetArch ){
+		case 0:     optionTargetArch= 0;
+					break;
+		case 1:     optionTargetArch= 1;
+					break;
+	}
 
 	switch( blitzConfig->compilerModeTarget ){
 		//Windows Console
@@ -277,6 +314,15 @@ static void changeBuildCommand() {
 	else
 		command = g_strconcat("-t gui ", command, NULL);
 
+	//NG
+	if( blitzConfig->compiler == 1) {
+		if( optionTargetArch == 0 )
+			command = g_strconcat("-g x86 ", command, NULL);
+		else
+			command = g_strconcat("-g x64 ", command, NULL);
+	}
+
+
 	//we want to build an app, not a module
 	command = g_strconcat("makeapp ", command, NULL);
 
@@ -286,7 +332,10 @@ static void changeBuildCommand() {
 	//1st entry = 0, 2nd entry = 1
 	build_set_menu_item(GEANY_BCS_PROJ, GEANY_GBG_FT, 1, GEANY_BC_LABEL,		"Custom Build Command");
 	build_set_menu_item(GEANY_BCS_PROJ, GEANY_GBG_FT, 1, GEANY_BC_COMMAND,		command);
-	build_set_menu_item(GEANY_BCS_PROJ, GEANY_GBG_FT, 1, GEANY_BC_WORKING_DIR,	workingDir);
+	if (blitzConfig->compiler == 0)
+		build_set_menu_item(GEANY_BCS_PROJ, GEANY_GBG_FT, 1, GEANY_BC_WORKING_DIR,	workingDir1);
+	else
+		build_set_menu_item(GEANY_BCS_PROJ, GEANY_GBG_FT, 1, GEANY_BC_WORKING_DIR,	workingDir2);
 }
 
 static void saveConfiguration() {
@@ -297,6 +346,7 @@ static void saveConfiguration() {
 	g_key_file_load_from_file( config, blitzConfig->configFile, G_KEY_FILE_NONE, NULL );
 
 	g_key_file_set_string( config, "blitzmax", "blitzmaxPath", blitzConfig->blitzmaxPath );
+	g_key_file_set_string( config, "blitzmax", "blitzmaxNGPath", blitzConfig->blitzmaxNGPath );
 	g_key_file_set_integer( config, "blitzmax", "compilerModeBuild", blitzConfig->compilerModeBuild );
 	g_key_file_set_integer( config, "blitzmax", "compilerModeTarget", blitzConfig->compilerModeTarget );
 
@@ -332,6 +382,12 @@ void showToolbarElements() {
 
 	gtk_widget_show_all( GTK_WIDGET(toolbar_compileBoxItem) );
 
+	//hide NG stuff if not needed
+	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
+		hideToolbarCompilerElements();
+	if (blitzConfig->compiler == 0)
+		hideToolbarNGElements();
+
 	//hide the default thingies
 	gtk_widget_hide( toolbar_get_widget_by_name("Build") );
 	gtk_widget_hide( toolbar_get_widget_by_name("Compile") );
@@ -343,6 +399,36 @@ void showToolbarElements() {
 	//  -> in case current doc is a "bmx"-file, we show elements...
 	//     and voila: have a custom build command set
 	changeBuildCommand();
+}
+
+void hideToolbarCompilerElements() {
+	g_return_if_fail( toolbar_compiler_dropdown != NULL );
+
+	gtk_widget_hide( toolbar_compiler_dropdown );
+}
+
+void showToolbarCompilerElements() {
+	g_return_if_fail( toolbar_compiler_dropdown != NULL );
+
+	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
+		return;
+
+	gtk_widget_show( toolbar_compiler_dropdown );
+}
+
+void hideToolbarNGElements() {
+	g_return_if_fail( toolbar_compileTargetArch_dropdown != NULL );
+
+	gtk_widget_hide( toolbar_compileTargetArch_dropdown );
+}
+
+void showToolbarNGElements() {
+	g_return_if_fail( toolbar_compileTargetArch_dropdown != NULL );
+
+	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
+		return;
+
+	gtk_widget_show( toolbar_compileTargetArch_dropdown );
 }
 
 void initToolbarElements(GeanyData *data) {
@@ -404,6 +490,30 @@ void initToolbarElements(GeanyData *data) {
 	g_signal_connect(G_OBJECT(toolbar_compileModesTarget_dropdown), "changed", G_CALLBACK( onToolbarCompileModesTargetDropdownChanged), data);
 
 
+	// Compiler
+	// ------------------------
+	toolbar_compiler_dropdown = gtk_combo_box_new_text();
+	// add dropdown texts
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compiler_dropdown), "Vanilla");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compiler_dropdown), "NG");
+	// set active to stored one (defaults to "Vanilla")
+	gtk_combo_box_set_active( GTK_COMBO_BOX(toolbar_compiler_dropdown), blitzConfig->compiler );
+	// connect to "change" event - if user changes selection
+	g_signal_connect(G_OBJECT(toolbar_compiler_dropdown), "changed", G_CALLBACK( onToolbarCompilerDropdownChanged), data);
+
+
+	// Architecure
+	// ------------------------
+	toolbar_compileTargetArch_dropdown = gtk_combo_box_new_text();
+	// add dropdown texts
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileTargetArch_dropdown), "x86 (32 bit)");
+	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileTargetArch_dropdown), "x64 (64 bit)");
+	// set active to stored one (defaults to "Vanilla")
+	gtk_combo_box_set_active( GTK_COMBO_BOX(toolbar_compileTargetArch_dropdown), blitzConfig->compilerTargetArch );
+	// connect to "change" event - if user changes selection
+	g_signal_connect(G_OBJECT(toolbar_compileTargetArch_dropdown), "changed", G_CALLBACK( onToolbarTargetArchDropdownChanged), data);
+
+
 
 	// Compilation Modes Build
 	// -----------------------
@@ -441,6 +551,8 @@ void initToolbarElements(GeanyData *data) {
 	//gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(gtk_check_button_new_with_label("Quick")), TRUE, TRUE, 0);
 	//gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(gtk_check_button_new_with_label("Threaded")), TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compileModesBuild_dropdown), TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compiler_dropdown), TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compileTargetArch_dropdown), TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compile_button), TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compileAndRun_button), TRUE, TRUE, 0);
 
@@ -471,9 +583,13 @@ void plugin_init(GeanyData *data) {
 	// load config file
 	g_key_file_load_from_file(config, blitzConfig->configFile, G_KEY_FILE_NONE, NULL);
 	// load config settings
-	blitzConfig->blitzmaxPath		= utils_get_setting_string(config, "blitzmax", "blitzmaxPath", "/home/YOURNAME/PATH/TO/BLITZMAX");
+	blitzConfig->blitzmaxPath		= utils_get_setting_string(config, "blitzmax", "blitzmaxPath", "");
+	blitzConfig->blitzmaxNGPath		= utils_get_setting_string(config, "blitzmax", "blitzmaxNGPath", "");
 	blitzConfig->compilerModeBuild	= utils_get_setting_integer(config, "blitzmax", "compilerModeBuild", 0);
 	blitzConfig->compilerModeTarget	= utils_get_setting_integer(config, "blitzmax", "compilerModeTarget", 0);
+
+	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
+		blitzConfig->compiler = 0;
 
 	// we want to store our config
 	plugin_module_make_resident(geany_plugin);
@@ -509,6 +625,26 @@ GtkWidget *plugin_configure(GtkDialog *dialog) {
 	label = gtk_label_new(_("NO trailing slash\neg. home/ronny/Work/Programming/BlitzMax"));
 	gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
 	gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+
+	//
+
+	box = gtk_vbox_new(FALSE, 3);
+	label = gtk_label_new(_("Path to BlitzMaxNG:"));
+	gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+	gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+
+	blitzmaxNGPathEntry = gtk_entry_new();
+	if ( blitzConfig->blitzmaxNGPath != NULL)
+		gtk_entry_set_text(GTK_ENTRY(blitzmaxNGPathEntry), blitzConfig->blitzmaxNGPath);
+	gtk_widget_set_tooltip_text(blitzmaxNGPathEntry, _("The absolute path to your BlitzMaxNG directory - do not add the /bin-subdirectory here"));
+
+	gtk_box_pack_start(GTK_BOX(box), blitzmaxNGPathEntry, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), box, FALSE, FALSE, 3);
+
+	label = gtk_label_new(_("NO trailing slash\neg. home/ronny/Work/Programming/BlitzMaxNG"));
+	gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+	gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+
 
 	gtk_widget_show_all(vbox);
 

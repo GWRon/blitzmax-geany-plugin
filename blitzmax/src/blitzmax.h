@@ -1,7 +1,7 @@
 /*
  *      blitzmax.h - this file is part of "BlitzMax"-addon
  *
- *      Copyright 2009-2011 Ronny Otto
+ *      Copyright 2009-2018 Ronny Otto
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ static void onStartupComplete(GObject *obj, gpointer data);
 static void onDocumentActivate(GObject *obj, GeanyDocument *doc, gpointer data);
 static void onConfigureResponse(GtkDialog *dialog, gint response, gpointer user_data);
 static void onToolbarCompileModesBuildDropdownChanged(GtkComboBox *box, gpointer data);
+static void onToolbarCompilerDropdownChanged(GtkComboBox *box, gpointer data);
 static void onToolbarCompileModesTargetDropdownChanged(GtkComboBox *box, gpointer data);
 static void onToolbarCompileButtonClicked(GtkWidget *button, gpointer data);
 static void onToolbarCompileAndRunButtonClicked(GtkWidget *button, gpointer data);
@@ -49,6 +50,12 @@ static void executeBuildCommand(gint doRun);
 
 void hideToolbarElements();
 void showToolbarElements();
+
+void hideToolbarCompilerElements();
+void showToolbarCompilerElements();
+
+void hideToolbarNGElements();
+void showToolbarNGElements();
 
 
 #endif
