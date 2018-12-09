@@ -32,7 +32,7 @@ PLUGIN_SET_TRANSLATABLE_INFO(
 		LOCALEDIR, GETTEXT_PACKAGE,
 		_("BlitzMax-Addon"),
 		_("Various functions for the BlitzMax language in Geany."),
-		"0.4",
+		"0.5",
 		"Ronny Otto <ron(at)gamezworld(dot)de>"
 	);
 
@@ -119,12 +119,14 @@ static void onToolbarCompileModesBuildDropdownChanged(GtkComboBox *box, gpointer
 	//store selection in info
 	blitzConfig->compilerModeBuild = gtk_combo_box_get_active(box);
 	changeBuildCommand();
+	saveConfiguration();
 }
 
 static void onToolbarCompileModesTargetDropdownChanged(GtkComboBox *box, gpointer data) {
 	//store selection in info
 	blitzConfig->compilerModeTarget = gtk_combo_box_get_active(box);
 	changeBuildCommand();
+	saveConfiguration();
 }
 
 static void onToolbarCompilerDropdownChanged(GtkComboBox *box, gpointer data) {
@@ -137,12 +139,14 @@ static void onToolbarCompilerDropdownChanged(GtkComboBox *box, gpointer data) {
 		showToolbarNGElements();
 
 	changeBuildCommand();
+	saveConfiguration();
 }
 
 static void onToolbarTargetArchDropdownChanged(GtkComboBox *box, gpointer data) {
 	//store selection in info
 	blitzConfig->compilerTargetArch = gtk_combo_box_get_active(box);
 	changeBuildCommand();
+	saveConfiguration();
 }
 
 
@@ -349,6 +353,8 @@ static void saveConfiguration() {
 	g_key_file_set_string( config, "blitzmax", "blitzmaxNGPath", blitzConfig->blitzmaxNGPath );
 	g_key_file_set_integer( config, "blitzmax", "compilerModeBuild", blitzConfig->compilerModeBuild );
 	g_key_file_set_integer( config, "blitzmax", "compilerModeTarget", blitzConfig->compilerModeTarget );
+	g_key_file_set_integer( config, "blitzmax", "compilerTargetArch", blitzConfig->compilerTargetArch );
+	g_key_file_set_integer( config, "blitzmax", "compiler", blitzConfig->compiler );
 
 	if ( !g_file_test(config_dir, G_FILE_TEST_IS_DIR) && utils_mkdir(config_dir, TRUE) != 0) {
 		dialogs_show_msgbox(GTK_MESSAGE_ERROR, _("Plugin configuration directory could not be created."));
@@ -587,6 +593,8 @@ void plugin_init(GeanyData *data) {
 	blitzConfig->blitzmaxNGPath		= utils_get_setting_string(config, "blitzmax", "blitzmaxNGPath", "");
 	blitzConfig->compilerModeBuild	= utils_get_setting_integer(config, "blitzmax", "compilerModeBuild", 0);
 	blitzConfig->compilerModeTarget	= utils_get_setting_integer(config, "blitzmax", "compilerModeTarget", 0);
+	blitzConfig->compiler			= utils_get_setting_integer(config, "blitzmax", "compiler", 0);
+	blitzConfig->compilerTargetArch	= utils_get_setting_integer(config, "blitzmax", "compilerTargetArch", 0);
 
 	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
 		blitzConfig->compiler = 0;
