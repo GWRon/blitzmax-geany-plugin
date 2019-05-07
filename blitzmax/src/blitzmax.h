@@ -54,6 +54,9 @@ void showToolbarElements();
 void hideToolbarCompilerElements();
 void showToolbarCompilerElements();
 
+void hideToolbarProjectElements();
+void showToolbarProjectElements();
+
 void hideToolbarNGElements();
 void showToolbarNGElements();
 

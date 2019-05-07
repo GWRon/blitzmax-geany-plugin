@@ -32,7 +32,7 @@ PLUGIN_SET_TRANSLATABLE_INFO(
 		LOCALEDIR, GETTEXT_PACKAGE,
 		_("BlitzMax-Addon"),
 		_("Various functions for the BlitzMax language in Geany."),
-		"0.5",
+		"0.6.1",
 		"Ronny Otto <ron(at)gamezworld(dot)de>"
 	);
 
@@ -60,6 +60,8 @@ gint optionRebuild		= 0;
 gint optionThreaded		= 0;
 gint optionTargetOS		= 0;
 gint optionTargetArch	= 0;
+gchar *lockedProjectFile = NULL;
+//gint lockedProjectFileID = 0;
 
 static GtkToolItem *toolbar_compileBoxItem = NULL;
 static GtkWidget *toolbar_compileBox = NULL;
@@ -67,8 +69,10 @@ static GtkWidget *toolbar_compileModesTarget_dropdown = NULL;
 static GtkWidget *toolbar_compiler_dropdown = NULL;
 static GtkWidget *toolbar_compileTargetArch_dropdown = NULL;
 static GtkWidget *toolbar_compileModesBuild_dropdown = NULL;
-static GtkToolItem *toolbar_compile_button = NULL;
-static GtkToolItem *toolbar_compileAndRun_button = NULL;
+static GtkWidget *toolbar_compile_button = NULL;
+static GtkWidget *toolbar_compileAndRun_button = NULL;
+static GtkWidget *toolbar_lockProjectFile_button = NULL;
+static GtkWidget *toolbar_lockedProjectFile_button = NULL;
 static GtkWidget *blitzmaxPathEntry;
 static GtkWidget *blitzmaxNGPathEntry;
 
@@ -114,6 +118,30 @@ static void onToolbarCompileAndRunButtonClicked(GtkWidget *button, gpointer data
 	optionRun=1;
 	executeBuildCommand( 1 );
 }
+
+static void onToolbarLockProjectFileButtonClicked(GtkWidget *button, gpointer data) {
+	GeanyDocument *doc = document_get_current();
+	g_return_if_fail( doc != NULL );
+
+	lockedProjectFile = doc->file_name;
+//	lockedProjectFileID = doc->id;
+//	msgwin_msg_add(COLOR_RED, -1, NULL, "LOCK doc->file_type->id=%d  %s  locked=%d", doc->file_type->id, doc->file_name, lockedProjectFileID);
+
+	#if GTK_CHECK_VERSION(2, 12, 0)
+		gtk_tool_item_set_tooltip_text( GTK_TOOL_ITEM(toolbar_lockedProjectFile_button),	g_strconcat(_("Locked to: "), lockedProjectFile, NULL) );
+	#endif
+	gtk_widget_hide(toolbar_lockProjectFile_button);
+	gtk_widget_show(toolbar_lockedProjectFile_button);
+}
+
+static void onToolbarLockedProjectFileButtonClicked(GtkWidget *button, gpointer data) {
+	lockedProjectFile = NULL;
+	//lockedProjectFileID = 0;
+	
+	gtk_widget_show(toolbar_lockProjectFile_button);
+	gtk_widget_hide(toolbar_lockedProjectFile_button);
+}
+
 
 static void onToolbarCompileModesBuildDropdownChanged(GtkComboBox *box, gpointer data) {
 	//store selection in info
@@ -164,6 +192,25 @@ static void executeBuildCommand(gint doRun) {
 	//refresh build command
 	changeBuildCommand();
 
+	//activate project file
+	if(lockedProjectFile != NULL && g_strcmp0(lockedProjectFile, "") != 0) {
+	//if (lockedProjectFileID != 0) {
+		guint i, max = (guint) gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_widgets.notebook));
+
+		/* iterate over documents in tabs order */
+		for (i = 0; i < max; i++) {
+			GeanyDocument *selectedDoc = document_get_from_page(i);
+
+//			msgwin_msg_add(COLOR_BLUE, -1, NULL, "doc->file_type->id=%d  %s  locked=%d", selectedDoc->file_type->id, selectedDoc->file_name, lockedProjectFileID);
+			/* select our project file */
+			if(g_strcmp0(lockedProjectFile, selectedDoc->file_name) == 0) {
+//			if (selectedDoc->id == lockedProjectFileID) {
+				document_show_tab(selectedDoc);
+				break;
+			}
+		}
+	}
+
 	menu_items = build_get_menu_items(doc->file_type->id);
 	//run "compile" (1st)
 	//item = menu_items->menu_item[GEANY_GBG_FT][GBO_TO_CMD(GEANY_GBO_COMPILE)];
@@ -174,6 +221,11 @@ static void executeBuildCommand(gint doRun) {
 
 	//reset to default 1 - so that F9 compiles and executes
 	optionRun = 1;
+
+	//deactivate project file
+	if(lockedProjectFile != NULL && g_strcmp0(lockedProjectFile, "") != 0)
+//	if (lockedProjectFileID != 0)
+		document_show_tab(doc);
 
 }
 
@@ -377,6 +429,9 @@ void hideToolbarElements() {
 	gtk_widget_show( toolbar_get_widget_by_name("Compile") );
 	gtk_widget_show( toolbar_get_widget_by_name("Run") );
 
+	//hide project settings
+	hideToolbarProjectElements();
+
 //	gtk_box_reorder_child ( GTK_BOX(geany->main_widgets->toolbar), GTK_WIDGET(toolbar_compileBoxItem), 0);
 
 	gtk_widget_hide_all( GTK_WIDGET(toolbar_compileBoxItem) );
@@ -393,6 +448,9 @@ void showToolbarElements() {
 		hideToolbarCompilerElements();
 	if (blitzConfig->compiler == 0)
 		hideToolbarNGElements();
+
+	//show project settings
+	showToolbarProjectElements();
 
 	//hide the default thingies
 	gtk_widget_hide( toolbar_get_widget_by_name("Build") );
@@ -420,6 +478,28 @@ void showToolbarCompilerElements() {
 		return;
 
 	gtk_widget_show( toolbar_compiler_dropdown );
+}
+
+void hideToolbarProjectElements() {
+	g_return_if_fail( toolbar_lockProjectFile_button != NULL );
+
+	gtk_widget_hide( toolbar_lockedProjectFile_button );
+	gtk_widget_hide( toolbar_lockProjectFile_button );
+}
+
+void showToolbarProjectElements() {
+	g_return_if_fail( toolbar_lockProjectFile_button != NULL );
+
+	if(g_strcmp0(blitzConfig->blitzmaxNGPath, "") == 0)
+		return;
+
+	if(lockedProjectFile == NULL || g_strcmp0(lockedProjectFile, "") == 0) {
+		gtk_widget_hide( toolbar_lockedProjectFile_button );
+		gtk_widget_show( toolbar_lockProjectFile_button );
+	} else {
+		gtk_widget_hide( toolbar_lockProjectFile_button );
+		gtk_widget_show( toolbar_lockedProjectFile_button );
+	}
 }
 
 void hideToolbarNGElements() {
@@ -478,14 +558,34 @@ void initToolbarElements(GeanyData *data) {
 	g_signal_connect( toolbar_compileAndRun_button, "clicked", G_CALLBACK(onToolbarCompileAndRunButtonClicked), NULL );
 
 
+	// Lock project file button
+	//---------------
+	toolbar_lockProjectFile_button = gtk_tool_button_new_from_stock( GTK_STOCK_STOP );
+	#if GTK_CHECK_VERSION(2, 12, 0)
+		gtk_tool_item_set_tooltip_text( GTK_TOOL_ITEM(toolbar_lockProjectFile_button),	_("Lock Project File") );
+	#endif
+	ui_add_document_sensitive( GTK_WIDGET(toolbar_lockProjectFile_button) );
+	g_signal_connect( toolbar_lockProjectFile_button, "clicked", G_CALLBACK(onToolbarLockProjectFileButtonClicked), NULL );
+
+
+	toolbar_lockedProjectFile_button = gtk_tool_button_new_from_stock( GTK_STOCK_OK );
+	#if GTK_CHECK_VERSION(2, 12, 0)
+		gtk_tool_item_set_tooltip_text( GTK_TOOL_ITEM(toolbar_lockedProjectFile_button),	_("Locked to: ") );
+	#endif
+	ui_add_document_sensitive( GTK_WIDGET(toolbar_lockedProjectFile_button) );
+	g_signal_connect( toolbar_lockedProjectFile_button, "clicked", G_CALLBACK(onToolbarLockedProjectFileButtonClicked), NULL );
+
+
 
 	// Compilation Modes Target
 	// ------------------------
 	toolbar_compileModesTarget_dropdown = gtk_combo_box_new_text();
 	// add dropdown texts
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Select Target");
-	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Windows Console");
-	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Windows GUI");
+//	#ifdef G_OS_WIN32
+		gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Windows Console");
+		gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Windows GUI");
+//	#endif
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Linux Console");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "Linux GUI");
 	gtk_combo_box_append_text( GTK_COMBO_BOX(toolbar_compileModesTarget_dropdown), "MacOS Console");
@@ -561,7 +661,11 @@ void initToolbarElements(GeanyData *data) {
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compileTargetArch_dropdown), TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compile_button), TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_compileAndRun_button), TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_lockProjectFile_button), TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(toolbar_compileBox), GTK_WIDGET(toolbar_lockedProjectFile_button), TRUE, TRUE, 0);
 
+	//hide locked state
+	gtk_widget_hide( toolbar_lockedProjectFile_button );
 
 }
 
